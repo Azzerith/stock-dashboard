@@ -23,14 +23,15 @@ func main() {
     
     // Setup Gin
     r := gin.Default()
-    
-    // CORS middleware yang diperbaiki
+
     r.Use(func(c *gin.Context) {
         origin := c.Request.Header.Get("Origin")
-        
-        // Daftar allowed origins
+
         allowedOrigins := []string{
             config.AppConfig.AllowedOrigin,
+            "https://stock-dashboard-faiz.vercel.app",
+            "http://localhost:5173",
+            "http://localhost:3000",
         }
         
         // Cek apakah origin diizinkan
