@@ -210,7 +210,7 @@ export default function (data) {
     sleep(1);
 }
 
-// ─── TEARDOWN — dijalankan SEKALI di akhir ────────────────────────────────────
+// ─── TEARDOWN — dijalankan SEKALI di akhir ───────────────────────────────────
 export function teardown(data) {
     console.log('=== Pengujian selesai ===');
     console.log(`Token yang digunakan: ${data.token ? 'ADA' : 'TIDAK ADA'}`);
