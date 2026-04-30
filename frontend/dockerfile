@@ -7,6 +7,11 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci
 
+# Accept api url via arg
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
+
 # Copy the rest of the application
 COPY . .
 
