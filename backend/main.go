@@ -29,12 +29,8 @@ func main() {
 
         allowedOrigins := []string{
             config.AppConfig.AllowedOrigin,
-            "https://stock-dashboard-faiz.vercel.app",
-            "http://localhost:5173",
-            "http://localhost:3000",
         }
-        
-        // Cek apakah origin diizinkan
+
         allowed := false
         for _, ao := range allowedOrigins {
             if origin == ao {
