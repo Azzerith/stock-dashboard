@@ -12,8 +12,9 @@ type Config struct {
     DBHost     string
     DBPort     string
     DBName     string
-    JWTSecret  string
-    Port       string
+    JWTSecret     string
+    Port          string
+    AllowedOrigin string
 }
 
 var AppConfig *Config
@@ -29,9 +30,10 @@ func LoadConfig() {
         DBPassword: getEnv("DB_PASSWORD", "password"),
         DBHost:     getEnv("DB_HOST", "localhost"),
         DBPort:     getEnv("DB_PORT", "3306"),
-        DBName:     getEnv("DB_NAME", "stock_db"),
-        JWTSecret:  getEnv("JWT_SECRET", "default-secret-key"),
-        Port:       getEnv("PORT", "8080"),
+        DBName:        getEnv("DB_NAME", "stock_db"),
+        JWTSecret:     getEnv("JWT_SECRET", "default-secret-key"),
+        Port:          getEnv("PORT", "8080"),
+        AllowedOrigin: getEnv("ALLOWED_ORIGIN", "http://localhost:5173"),
     }
 }
 
