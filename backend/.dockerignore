@@ -1,0 +1,16 @@
+# Binaries
+main
+main.exe
+
+# OS generated files
+.DS_Store
+
+# Go workspaces
+go.work
+go.work.sum
+
+# Dependencies
+vendor/
+
+# Environment variables
+.env
