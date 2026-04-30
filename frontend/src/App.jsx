@@ -7,7 +7,7 @@ import DashboardPage from './pages/DashboardPage';
 import BarangPage from './pages/BarangPage';
 import TransaksiPage from './pages/TransaksiPage';
 import UserPage from './pages/UserPage';
-import Layout from './components/Layout/Layout';
+import Layout from './components/layout/layout';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
