@@ -24,20 +24,35 @@ func main() {
     // Setup Gin
     r := gin.Default()
     
-    // CORS middleware
+    // CORS middleware yang diperbaiki
     r.Use(func(c *gin.Context) {
         origin := c.Request.Header.Get("Origin")
-        allowedOrigin := config.AppConfig.AllowedOrigin
         
-        if origin == allowedOrigin || origin == "http://localhost:5173" || origin == "http://localhost:3000" {
-            c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
-        } else {
-            c.Writer.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
+        // Daftar allowed origins
+        allowedOrigins := []string{
+            config.AppConfig.AllowedOrigin,
         }
-        c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-        c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
-        c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
         
+        // Cek apakah origin diizinkan
+        allowed := false
+        for _, ao := range allowedOrigins {
+            if origin == ao {
+                allowed = true
+                break
+            }
+        }
+        
+        if allowed {
+            c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+            c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+            c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
+            c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE, PATCH")
+        } else if origin != "" {
+            // Log origin yang tidak dikenal (untuk debugging)
+            log.Printf("CORS: Rejected origin: %s", origin)
+        }
+        
+        // Handle preflight request
         if c.Request.Method == "OPTIONS" {
             c.AbortWithStatus(204)
             return
@@ -51,5 +66,6 @@ func main() {
     
     // Start server
     log.Printf("Server starting on port %s", config.AppConfig.Port)
+    log.Printf("CORS Allowed Origin from config: %s", config.AppConfig.AllowedOrigin)
     r.Run(":" + config.AppConfig.Port)
 }
