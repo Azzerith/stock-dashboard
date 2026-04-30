@@ -50,8 +50,8 @@ func SetupRoutes(r *gin.Engine, hub *websocket.Hub) {
         userRoutes := protected.Group("/users")
         userRoutes.Use(middleware.AdminOnly())
         {
-            userRoutes.GET("/", controllers.GetUsers)
-            userRoutes.POST("/", controllers.CreateUser)
+            userRoutes.GET("", controllers.GetUsers)
+            userRoutes.POST("", controllers.CreateUser)
             userRoutes.PUT("/:id", controllers.UpdateUser)
             userRoutes.DELETE("/:id", controllers.DeleteUser)
         }

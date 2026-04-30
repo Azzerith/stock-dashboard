@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import LoginPage from './pages/LoginPage';
+import LoginPage from './pages/LoginPages';
 import DashboardPage from './pages/DashboardPage';
 import BarangPage from './pages/BarangPage';
 import TransaksiPage from './pages/TransaksiPage';

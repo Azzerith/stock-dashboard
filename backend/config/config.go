@@ -36,7 +36,9 @@ func LoadConfig() {
 }
 
 func getEnv(key, defaultValue string) string {
-    if value := os.Getenv(key); value != "" {
+    if value, exists := os.LookupEnv(key); exists {
+        if value == "" && key != "DB_PASSWORD" {
+        }
         return value
     }
     return defaultValue
