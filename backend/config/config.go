@@ -33,7 +33,7 @@ func LoadConfig() {
         DBName:        getEnv("DB_NAME", "stock_db"),
         JWTSecret:     getEnv("JWT_SECRET", "default-secret-key"),
         Port:          getEnv("PORT", "8080"),
-        AllowedOrigin: getEnv("ALLOWED_ORIGIN", "http://localhost:5173"),
+        AllowedOrigin: getEnv("ALLOWED_ORIGIN", "*"),
     }
 }
 
