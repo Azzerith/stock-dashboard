@@ -20,20 +20,12 @@ function BarangPage() {
   const controller = new AbortController();
   fetchBarang(controller.signal);
 
-  socketService.connect();
-  const handleUpdate = () => fetchBarang();
-
-  socketService.on('barang_created', handleUpdate);
-  socketService.on('barang_updated', handleUpdate);
-  socketService.on('barang_deleted', handleUpdate);
-  socketService.on('stock_updated', handleUpdate);
+  // Poll setiap 5 detik sebagai pengganti WebSocket
+  const interval = setInterval(() => fetchBarang(), 5000);
 
   return () => {
     controller.abort();
-    socketService.off('barang_created', handleUpdate);
-    socketService.off('barang_updated', handleUpdate);
-    socketService.off('barang_deleted', handleUpdate);
-    socketService.off('stock_updated', handleUpdate);
+    clearInterval(interval);
   };
 }, []);
 

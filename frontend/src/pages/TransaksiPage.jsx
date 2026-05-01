@@ -20,27 +20,17 @@ function TransaksiPage() {
 
   useEffect(() => {
   const controller = new AbortController();
-
   fetchTransaksi(controller.signal);
   fetchBarang(controller.signal);
 
-  const user = JSON.parse(localStorage.getItem('user'));
-  if (user) {
-    setFormData(prev => ({ ...prev, id_user: user.id }));
-  }
-
-  socketService.connect();
-  const handleStockUpdate = () => {
+  const interval = setInterval(() => {
     fetchTransaksi();
     fetchBarang();
-    toast.success('Stok telah diupdate secara realtime!');
-  };
-
-  socketService.on('stock_updated', handleStockUpdate);
+  }, 5000);
 
   return () => {
     controller.abort();
-    socketService.off('stock_updated', handleStockUpdate);
+    clearInterval(interval);
   };
 }, []);
 
