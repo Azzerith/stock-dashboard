@@ -4,7 +4,6 @@ import (
     "log"
     "net/http"
     "sync"
-    "time"
     
     "github.com/gin-gonic/gin"
     "github.com/gorilla/websocket"
@@ -12,10 +11,8 @@ import (
 
 var upgrader = websocket.Upgrader{
     CheckOrigin: func(r *http.Request) bool {
-        return true
+        return true // Allow all origins for development
     },
-    ReadBufferSize:  1024,
-    WriteBufferSize: 1024,
 }
 
 type Message struct {
@@ -40,7 +37,7 @@ type Client struct {
 func NewHub() *Hub {
     return &Hub{
         clients:    make(map[*Client]bool),
-        broadcast:  make(chan Message, 256),
+        broadcast:  make(chan Message),
         register:   make(chan *Client),
         unregister: make(chan *Client),
     }
@@ -53,7 +50,7 @@ func (h *Hub) Run() {
             h.mu.Lock()
             h.clients[client] = true
             h.mu.Unlock()
-            log.Printf("WebSocket client registered, total clients: %d", len(h.clients))
+            log.Println("WebSocket client registered, total clients:", len(h.clients))
             
         case client := <-h.unregister:
             h.mu.Lock()
@@ -62,17 +59,13 @@ func (h *Hub) Run() {
                 close(client.send)
             }
             h.mu.Unlock()
-            log.Printf("WebSocket client unregistered, total clients: %d", len(h.clients))
+            log.Println("WebSocket client unregistered, total clients:", len(h.clients))
             
         case message := <-h.broadcast:
             h.mu.RLock()
             for client := range h.clients {
                 select {
                 case client.send <- message:
-                case <-time.After(5 * time.Second):
-                    log.Printf("WebSocket send timeout for client")
-                    close(client.send)
-                    delete(h.clients, client)
                 default:
                     close(client.send)
                     delete(h.clients, client)
@@ -84,11 +77,7 @@ func (h *Hub) Run() {
 }
 
 func (h *Hub) BroadcastMessage(message Message) {
-    select {
-    case h.broadcast <- message:
-    default:
-        log.Println("Broadcast channel is full, dropping message")
-    }
+    h.broadcast <- message
 }
 
 func (h *Hub) HandleWebSocket(c *gin.Context) {
@@ -115,13 +104,6 @@ func (c *Client) readPump() {
         c.conn.Close()
     }()
     
-    // Set read deadline
-    c.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
-    c.conn.SetPongHandler(func(string) error {
-        c.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
-        return nil
-    })
-    
     for {
         _, _, err := c.conn.ReadMessage()
         if err != nil {
@@ -131,30 +113,11 @@ func (c *Client) readPump() {
 }
 
 func (c *Client) writePump() {
-    ticker := time.NewTicker(30 * time.Second)
-    defer func() {
-        ticker.Stop()
-        c.conn.Close()
-    }()
-    
-    for {
-        select {
-        case message, ok := <-c.send:
-            if !ok {
-                c.conn.WriteMessage(websocket.CloseMessage, []byte{})
-                return
-            }
-            
-            c.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-            if err := c.conn.WriteJSON(message); err != nil {
-                return
-            }
-            
-        case <-ticker.C:
-            c.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-            if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-                return
-            }
+    defer c.conn.Close()
+    for message := range c.send {
+        err := c.conn.WriteJSON(message)
+        if err != nil {
+            break
         }
     }
 }

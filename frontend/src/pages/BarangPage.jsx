@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, Edit2, Trash2, AlertCircle, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Edit2, Trash2, AlertCircle } from 'lucide-react';
 import api from '../services/api';
 import socketService from '../services/socket';
 import toast from 'react-hot-toast';
@@ -8,107 +8,40 @@ function BarangPage() {
   const [barang, setBarang] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [isFetching, setIsFetching] = useState(false);
-  const [lastUpdate, setLastUpdate] = useState(null);
   const [formData, setFormData] = useState({
     kode: '',
     nama: '',
     stok: 0,
     lokasi_rak: '',
   });
-  
-  const abortControllerRef = useRef(null);
-  const debounceTimeoutRef = useRef(null);
-
-  const fetchBarang = useCallback(async (force = false) => {
-    if (isFetching && !force) return;
-    
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    
-    abortControllerRef.current = new AbortController();
-    setIsFetching(true);
-    
-    try {
-      const url = force ? `/barang?_t=${Date.now()}` : '/barang';
-      const response = await api.get(url, {
-        signal: abortControllerRef.current.signal,
-        headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
-        }
-      });
-      
-      if (response.data && Array.isArray(response.data)) {
-        setBarang(response.data);
-        setLastUpdate(Date.now());
-      }
-    } catch (error) {
-      if (error.name !== 'AbortError' && error.name !== 'CanceledError') {
-        console.error('Error fetching barang:', error);
-        toast.error('Gagal mengambil data barang');
-      }
-    } finally {
-      setIsFetching(false);
-    }
-  }, [isFetching]);
-
-  const refreshWithRetry = useCallback(async (retries = 3, delay = 1000) => {
-    for (let i = 0; i < retries; i++) {
-      try {
-        await fetchBarang(true);
-        return true;
-      } catch (error) {
-        if (i === retries - 1) {
-          console.error('Failed to refresh after retries:', error);
-          toast.error('Gagal memuat data terbaru');
-          return false;
-        }
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-    return false;
-  }, [fetchBarang]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    refreshWithRetry(2, 500);
+    fetchBarang();
     
+    // Connect WebSocket for realtime updates
     socketService.connect();
-
-    const handleDataChange = async () => {
-      if (debounceTimeoutRef.current) {
-        clearTimeout(debounceTimeoutRef.current);
-      }
-      debounceTimeoutRef.current = setTimeout(async () => {
-        await refreshWithRetry(2, 300);
-        toast.success('Data telah diperbarui secara realtime!', {
-          duration: 2000,
-          icon: '🔄'
-        });
-      }, 100);
-    };
+    socketService.on('barang_created', fetchBarang);
+    socketService.on('barang_updated', fetchBarang);
+    socketService.on('barang_deleted', fetchBarang);
+    socketService.on('stock_updated', fetchBarang);
     
-    socketService.on('barang_created', handleDataChange);
-    socketService.on('barang_updated', handleDataChange);
-    socketService.on('barang_deleted', handleDataChange);
-    socketService.on('stock_updated', handleDataChange);
-
     return () => {
-      if (debounceTimeoutRef.current) {
-        clearTimeout(debounceTimeoutRef.current);
-      }
-      socketService.off('barang_created', handleDataChange);
-      socketService.off('barang_updated', handleDataChange);
-      socketService.off('barang_deleted', handleDataChange);
-      socketService.off('stock_updated', handleDataChange);
-      
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
+      socketService.off('barang_created', fetchBarang);
+      socketService.off('barang_updated', fetchBarang);
+      socketService.off('barang_deleted', fetchBarang);
+      socketService.off('stock_updated', fetchBarang);
     };
-  }, [refreshWithRetry]);
+  }, []);
+
+  const fetchBarang = async () => {
+    try {
+      const response = await api.get('/barang');
+      setBarang(response.data);
+    } catch (error) {
+      toast.error('Gagal mengambil data barang');
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -123,10 +56,9 @@ function BarangPage() {
         toast.success('Barang berhasil ditambahkan');
       }
       
-      await refreshWithRetry(3, 500);
       resetForm();
+      fetchBarang();
     } catch (error) {
-      console.error('Error saving barang:', error);
       toast.error(error.response?.data?.error || 'Gagal menyimpan barang');
     } finally {
       setLoading(false);
@@ -138,9 +70,8 @@ function BarangPage() {
       try {
         await api.delete(`/barang/${id}`);
         toast.success('Barang berhasil dihapus');
-        await refreshWithRetry(2, 500);
+        fetchBarang();
       } catch (error) {
-        console.error('Error deleting barang:', error);
         toast.error('Gagal menghapus barang');
       }
     }
@@ -170,42 +101,15 @@ function BarangPage() {
 
   return (
     <div>
-      {/* Loading Indicator */}
-      {isFetching && (
-        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-2 duration-300">
-          <div className="bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
-            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-            <span className="text-sm">Memperbarui data...</span>
-          </div>
-        </div>
-      )}
-      
       <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">Master Barang</h1>
-          {lastUpdate && (
-            <p className="text-xs text-gray-500 mt-1">
-              Terakhir update: {new Date(lastUpdate).toLocaleTimeString('id-ID')}
-            </p>
-          )}
-        </div>
-        <div className="flex gap-3">
-          <button
-            onClick={() => refreshWithRetry(2, 500)}
-            disabled={isFetching}
-            className="btn-secondary flex items-center gap-2"
-          >
-            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-          <button
-            onClick={() => setShowModal(true)}
-            className="btn-primary flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Tambah Barang
-          </button>
-        </div>
+        <h1 className="text-2xl font-bold text-gray-800">Master Barang</h1>
+        <button
+          onClick={() => setShowModal(true)}
+          className="btn-primary flex items-center gap-2"
+        >
+          <Plus className="w-4 h-4" />
+          Tambah Barang
+        </button>
       </div>
 
       <div className="card">
@@ -235,7 +139,7 @@ function BarangPage() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {barang.map((item) => (
-                <tr key={`${item.id}-${lastUpdate}`} className={item.stok < 10 ? 'bg-red-50' : ''}>
+                <tr key={item.id} className={item.stok < 10 ? 'bg-red-50' : ''}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {item.kode}
                   </td>
@@ -261,26 +165,19 @@ function BarangPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <button
                       onClick={() => handleEdit(item)}
-                      className="text-blue-600 hover:text-blue-800 mr-3 transition-colors"
+                      className="text-blue-600 hover:text-blue-800 mr-3"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleDelete(item.id)}
-                      className="text-red-600 hover:text-red-800 transition-colors"
+                      className="text-red-600 hover:text-red-800"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </td>
                 </tr>
               ))}
-              {barang.length === 0 && !isFetching && (
-                <tr>
-                  <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
-                    Belum ada data barang
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
@@ -288,7 +185,7 @@ function BarangPage() {
 
       {/* Modal Form */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 backdrop-blur-sm drop-shadow-lg bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h2 className="text-xl font-bold mb-4">
               {editingId ? 'Edit Barang' : 'Tambah Barang'}
@@ -303,7 +200,7 @@ function BarangPage() {
                     type="text"
                     value={formData.kode}
                     onChange={(e) => setFormData({ ...formData, kode: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="input-field"
                     required
                   />
                 </div>
@@ -315,7 +212,7 @@ function BarangPage() {
                     type="text"
                     value={formData.nama}
                     onChange={(e) => setFormData({ ...formData, nama: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="input-field"
                     required
                   />
                 </div>
@@ -326,8 +223,8 @@ function BarangPage() {
                   <input
                     type="number"
                     value={formData.stok}
-                    onChange={(e) => setFormData({ ...formData, stok: parseInt(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) => setFormData({ ...formData, stok: parseInt(e.target.value) })}
+                    className="input-field"
                     min="0"
                     required
                   />
@@ -340,24 +237,16 @@ function BarangPage() {
                     type="text"
                     value={formData.lokasi_rak}
                     onChange={(e) => setFormData({ ...formData, lokasi_rak: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="input-field"
                     required
                   />
                 </div>
               </div>
               <div className="flex gap-3 mt-6">
-                <button 
-                  type="submit" 
-                  className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
-                  disabled={loading}
-                >
+                <button type="submit" className="flex-1 btn-primary" disabled={loading}>
                   {loading ? 'Menyimpan...' : (editingId ? 'Update' : 'Simpan')}
                 </button>
-                <button 
-                  type="button" 
-                  onClick={resetForm} 
-                  className="flex-1 bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 transition-colors"
-                >
+                <button type="button" onClick={resetForm} className="flex-1 btn-secondary">
                   Batal
                 </button>
               </div>
