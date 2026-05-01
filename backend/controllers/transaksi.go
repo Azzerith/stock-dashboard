@@ -3,6 +3,7 @@ package controllers
 import (
 	"errors"
 	"net/http"
+	"time"
 	"stock-dashboard/database"
 	"stock-dashboard/models"
 	"stock-dashboard/websocket"
@@ -25,6 +26,10 @@ func GetTransaksi(c *gin.Context) {
 		return
 	}
 
+	c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
+	c.Header("Pragma", "no-cache")
+	c.Header("Expires", "0")
+	
 	c.JSON(http.StatusOK, transaksiList)
 }
 
@@ -39,9 +44,7 @@ func CreateTransaksi(c *gin.Context, hub *websocket.Hub) {
 	var transaksi models.Transaksi
 
 	err := database.DB.Transaction(func(tx *gorm.DB) error {
-
 		if req.TipeTransaksi == "masuk" {
-			// UPDATE langsung
 			result := tx.Exec(`
                 UPDATE barangs 
                 SET stok = stok + ?, updated_at = NOW() 
@@ -73,12 +76,10 @@ func CreateTransaksi(c *gin.Context, hub *websocket.Hub) {
 			return errors.New("tipe transaksi tidak valid")
 		}
 
-		// Ambil data barang terbaru
 		if err := tx.Raw("SELECT * FROM barangs WHERE id = ?", req.IDBarang).Scan(&updatedBarang).Error; err != nil {
 			return err
 		}
 
-		// Catat transaksi
 		transaksi = models.Transaksi{
 			IDBarang:      req.IDBarang,
 			TipeTransaksi: req.TipeTransaksi,
@@ -104,8 +105,10 @@ func CreateTransaksi(c *gin.Context, hub *websocket.Hub) {
 		hub.BroadcastMessage(websocket.Message{
 			Type: "stock_updated",
 			Payload: gin.H{
-				"barang":  updatedBarang,
-				"message": "Stok berhasil diupdate",
+				"barang":    updatedBarang,
+				"transaksi": transaksi,
+				"timestamp": time.Now().Unix(),
+				"message":   "Stok berhasil diupdate",
 			},
 		})
 	}

@@ -1,14 +1,15 @@
 package controllers
 
 import (
-    "net/http"
-    "strconv"
-    "stock-dashboard/database"
-    "stock-dashboard/models"
-    "stock-dashboard/websocket"
-    
-    "github.com/gin-gonic/gin"
-    "gorm.io/gorm"
+	"net/http"
+	"stock-dashboard/database"
+	"stock-dashboard/models"
+	"stock-dashboard/websocket"
+	"strconv"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 func GetBarang(c *gin.Context) {
@@ -19,6 +20,10 @@ func GetBarang(c *gin.Context) {
         c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
         return
     }
+    
+    c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
+    c.Header("Pragma", "no-cache")
+    c.Header("Expires", "0")
     
     c.JSON(http.StatusOK, barangList)
 }
@@ -41,6 +46,7 @@ func GetBarangByID(c *gin.Context) {
         return
     }
     
+    c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
     c.JSON(http.StatusOK, barang)
 }
 
@@ -64,11 +70,13 @@ func CreateBarang(c *gin.Context, hub *websocket.Hub) {
         return
     }
     
-    // Broadcast via WebSocket
     if hub != nil {
         hub.BroadcastMessage(websocket.Message{
             Type:    "barang_created",
-            Payload: barang,
+            Payload: gin.H{
+                "data":      barang,
+                "timestamp": time.Now().Unix(),
+            },
         })
     }
     
@@ -106,11 +114,13 @@ func UpdateBarang(c *gin.Context, hub *websocket.Hub) {
     
     database.DB.Save(&barang)
     
-    // Broadcast via WebSocket
     if hub != nil {
         hub.BroadcastMessage(websocket.Message{
             Type:    "barang_updated",
-            Payload: barang,
+            Payload: gin.H{
+                "data":      barang,
+                "timestamp": time.Now().Unix(),
+            },
         })
     }
     
@@ -135,11 +145,13 @@ func DeleteBarang(c *gin.Context, hub *websocket.Hub) {
         return
     }
     
-    // Broadcast via WebSocket
     if hub != nil {
         hub.BroadcastMessage(websocket.Message{
             Type:    "barang_deleted",
-            Payload: id,
+            Payload: gin.H{
+                "id":        id,
+                "timestamp": time.Now().Unix(),
+            },
         })
     }
     
