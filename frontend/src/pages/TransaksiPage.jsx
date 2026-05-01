@@ -26,7 +26,7 @@ function TransaksiPage() {
   const interval = setInterval(() => {
     fetchTransaksi();
     fetchBarang();
-  }, 500);
+  }, 2000);
 
   return () => {
     controller.abort();
