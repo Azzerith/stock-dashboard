@@ -17,31 +17,35 @@ function BarangPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    fetchBarang();
-    
-    // Connect WebSocket for realtime updates
-    socketService.connect();
-    socketService.on('barang_created', fetchBarang);
-    socketService.on('barang_updated', fetchBarang);
-    socketService.on('barang_deleted', fetchBarang);
-    socketService.on('stock_updated', fetchBarang);
-    
-    return () => {
-      socketService.off('barang_created', fetchBarang);
-      socketService.off('barang_updated', fetchBarang);
-      socketService.off('barang_deleted', fetchBarang);
-      socketService.off('stock_updated', fetchBarang);
-    };
-  }, []);
+  const controller = new AbortController();
+  fetchBarang(controller.signal);
 
-  const fetchBarang = async () => {
-    try {
-      const response = await api.get('/barang');
-      setBarang(response.data);
-    } catch (error) {
-      toast.error('Gagal mengambil data barang');
-    }
+  socketService.connect();
+  const handleUpdate = () => fetchBarang();
+
+  socketService.on('barang_created', handleUpdate);
+  socketService.on('barang_updated', handleUpdate);
+  socketService.on('barang_deleted', handleUpdate);
+  socketService.on('stock_updated', handleUpdate);
+
+  return () => {
+    controller.abort();
+    socketService.off('barang_created', handleUpdate);
+    socketService.off('barang_updated', handleUpdate);
+    socketService.off('barang_deleted', handleUpdate);
+    socketService.off('stock_updated', handleUpdate);
   };
+}, []);
+
+  const fetchBarang = async (signal) => {
+  try {
+    const response = await api.get('/barang', { signal });
+    setBarang(response.data);
+  } catch (error) {
+    if (error.name === 'CanceledError') return;
+    toast.error('Gagal mengambil data barang');
+  }
+};
 
   const handleSubmit = async (e) => {
     e.preventDefault();

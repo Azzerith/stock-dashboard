@@ -19,44 +19,50 @@ function TransaksiPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+  const controller = new AbortController();
+
+  fetchTransaksi(controller.signal);
+  fetchBarang(controller.signal);
+
+  const user = JSON.parse(localStorage.getItem('user'));
+  if (user) {
+    setFormData(prev => ({ ...prev, id_user: user.id }));
+  }
+
+  socketService.connect();
+  const handleStockUpdate = () => {
     fetchTransaksi();
     fetchBarang();
-    
-    // Get current user ID
-    const user = JSON.parse(localStorage.getItem('user'));
-    if (user) {
-      setFormData(prev => ({ ...prev, id_user: user.id }));
-    }
-    
-    socketService.connect();
-    socketService.on('stock_updated', () => {
-      fetchTransaksi();
-      fetchBarang();
-      toast.success('Stok telah diupdate secara realtime!');
-    });
-    
-    return () => {
-      socketService.off('stock_updated');
-    };
-  }, []);
-
-  const fetchTransaksi = async () => {
-    try {
-      const response = await api.get('/transaksi');
-      setTransaksi(response.data);
-    } catch (error) {
-      toast.error('Gagal mengambil data transaksi');
-    }
+    toast.success('Stok telah diupdate secara realtime!');
   };
 
-  const fetchBarang = async () => {
-    try {
-      const response = await api.get('/barang');
-      setBarang(response.data);
-    } catch (error) {
-      toast.error('Gagal mengambil data barang');
-    }
+  socketService.on('stock_updated', handleStockUpdate);
+
+  return () => {
+    controller.abort();
+    socketService.off('stock_updated', handleStockUpdate);
   };
+}, []);
+
+  const fetchTransaksi = async (signal) => {
+  try {
+    const response = await api.get('/transaksi', { signal });
+    setTransaksi(response.data);
+  } catch (error) {
+    if (error.name === 'CanceledError') return;
+    toast.error('Gagal mengambil data transaksi');
+  }
+};
+
+  const fetchBarang = async (signal) => {
+  try {
+    const response = await api.get('/barang', { signal });
+    setBarang(response.data);
+  } catch (error) {
+    if (error.name === 'CanceledError') return;
+    toast.error('Gagal mengambil data barang');
+  }
+};
 
   const handleSubmit = async (e) => {
     e.preventDefault();
