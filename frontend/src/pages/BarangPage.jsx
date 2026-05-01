@@ -20,8 +20,8 @@ function BarangPage() {
   const controller = new AbortController();
   fetchBarang(controller.signal);
 
-  // Poll setiap 5 detik sebagai pengganti WebSocket
-  const interval = setInterval(() => fetchBarang(), 5000);
+  // Poll setiap 0,5 detik sebagai pengganti WebSocket
+  const interval = setInterval(() => fetchBarang(), 500);
 
   return () => {
     controller.abort();
