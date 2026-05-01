@@ -18,15 +18,32 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    // Handle logout jika 401
     if (error.response?.status === 401) {
       localStorage.removeItem('user');
       localStorage.removeItem('token');
       window.location.href = '/login';
+      return Promise.reject(error);
     }
+
+    const config = error.config;
+
+    if (!error.response && !config._retryCount) {
+      config._retryCount = 0;
+    }
+
+    if (!error.response && config._retryCount < 3) {
+      config._retryCount++;
+      const delay = config._retryCount * 2000; // 2s → 4s → 6s
+      console.warn(`Server belum siap, retry ke-${config._retryCount} dalam ${delay/1000}s...`);
+
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      return api(config);
+    }
+
     return Promise.reject(error);
   }
 );
-
 
 export default api;

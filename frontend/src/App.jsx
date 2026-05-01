@@ -8,6 +8,9 @@ import BarangPage from './pages/BarangPage';
 import TransaksiPage from './pages/TransaksiPage';
 import UserPage from './pages/UserPage';
 import Layout from './components/layout/layout';
+import { startKeepAlive } from './services/keepAlive';
+
+startKeepAlive();
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
